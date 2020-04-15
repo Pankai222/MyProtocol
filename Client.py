@@ -6,24 +6,28 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = ('localhost', 43098)
 print('Connecting to server...\n')
 
+client_ip = socket.gethostbyname(socket.gethostname())
+
 # variable for incrementing message and response-number
 counter = 0
 
 try:
-    start = False
-    client_ip = socket.gethostbyname(socket.gethostname())
+    connected = True
     print('Client Com-{}: '.format(counter) + client_ip + ' sending connection request')
     sock.sendto(client_ip.encode(), server_address)
     accept, server = sock.recvfrom(4096)
     print('Server Com-{}: '.format(counter) + accept.decode())
 
+    # split accept-message and set connected to false if first index is not 'accept'
     split = accept.decode().split()
-    if split[0] == 'accept':
+    if split[0] != 'accept':
+        connected = False
+
+    else:
         print('Client Com-{}: accept'.format(counter))
-        start = True
 
     # indefinite while-loop that runs until client sends 'bye'
-    while start:
+    while connected:
         # waits for user-input then encodes it to bytes for datagram
         print('\nYour message: ', end='')
         message = input().encode() + b'#' + str(counter).encode()
@@ -34,16 +38,18 @@ try:
         # Send data
         sent = sock.sendto(message, server_address)
 
-        # Receive response
-        data, server = sock.recvfrom(4096)
-        data_split = data.decode().split("#")
-        print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
-
+        # if input contains END, close socket
         if msg_split[0] == 'END':
             break
 
-        elif data_split[0] == 'Package incomplete':
+        # Receive response. If response breaks counter, close socket
+        data, server = sock.recvfrom(4096)
+        data_split = data.decode().split("#")
+
+        if data_split[0] == 'Package incomplete':
             break
+
+        print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
 
 finally:
     print('Closing connection...')
