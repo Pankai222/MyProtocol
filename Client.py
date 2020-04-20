@@ -1,56 +1,92 @@
 import socket
+import threading
+import time
+import sys
 
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
+# Setting available idle time for socket
 server_address = ('localhost', 43098)
 print('Connecting to server...\n')
 
 client_ip = socket.gethostbyname(socket.gethostname())
+start = True
 
-# variable for incrementing message and response-number
-counter = 0
 
-try:
-    connected = True
-    print('Client Com-{}: '.format(counter) + client_ip + ' sending connection request')
-    sock.sendto(client_ip.encode(), server_address)
-    accept, server = sock.recvfrom(4096)
-    print('Server Com-{}: '.format(counter) + accept.decode())
+def accept():
+    counter = 0
+    while True:
+        try:
+            sock.settimeout(10)
+            print('Client Com-{}: '.format(counter) + client_ip + ' sending connection request')
+            sock.sendto(client_ip.encode(), server_address)
+            # calls recvfrom() method and divides the arguments into 2 variables,
+            # accept for the data received and server for the connection information
+            request, server = sock.recvfrom(4096)
+            # split accept-message and set connected to false if first index is not 'accept'
+            split = request.decode().split()
+            if split[0] != 'accept':
+                print('Failed to receive accept-message, closing connection...')
+                break
+            else:
+                print('Client Com-{}: accept'.format(counter))
+                print('Server Com-{}: '.format(counter) + request.decode())
+                break
+        except socket.timeout:
+            print('No connection found, retrying...')
+            accept()
 
-    # split accept-message and set connected to false if first index is not 'accept'
-    split = accept.decode().split()
-    if split[0] != 'accept':
-        connected = False
 
-    else:
-        print('Client Com-{}: accept'.format(counter))
+def read():
+    start = True
+    try:
+        while True:
+            data, server = sock.recvfrom(4096)
+            if data.decode() == 'con-res 0xFE':
+                sock.sendto(b'con-res 0xFE', server_address)
+                break
+            data_split = data.decode().split("#")
+            if data_split[0] == 'Package incomplete':
+                print('Error in data transfer, closing connection...')
+                break
+            if data.decode() == 'con-res 0xFE':
+                sock.sendto(b'con-res 0xFE', server_address)
+                break
+            if data_split[0] == 'END':
+                break
+            print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
+    except socket.timeout:
+        print('')
+    finally:
+        sock.close()
 
-    # indefinite while-loop that runs until client sends 'bye'
-    while connected:
-        # waits for user-input then encodes it to bytes for datagram
-        print('\nYour message: ', end='')
-        message = input().encode() + b'#' + str(counter).encode()
-        msg_split = message.decode().split("#")
-        print('Client Message-{}: '.format(counter) + msg_split[0])
-        counter += 2
 
-        # Send data
-        sent = sock.sendto(message, server_address)
+def write():
+    counter = 2
+    try:
+        while start:
+            print('\nYour message: ', end='')
+            message = input().encode() + b'#' + str(counter).encode()
+            msg_split = message.decode().split("#")
+            print('Client Message-{}: '.format(counter) + msg_split[0])
+            counter += 2
+            sock.sendto(message, server_address)
+            if msg_split[0] == 'END':
+                sock.sendto(message, server_address)
+                print('Closing connection...')
+                break
+            time.sleep(0.1)
 
-        # if input contains END, close socket
-        if msg_split[0] == 'END':
-            break
+    except KeyboardInterrupt:
+        print('\nClient closed unexpectedly')
 
-        # Receive response. If response breaks counter, close socket
-        data, server = sock.recvfrom(4096)
-        data_split = data.decode().split("#")
 
-        if data_split[0] == 'Package incomplete':
-            break
+def keep_alive():
+    print('lol')
 
-        print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
 
-finally:
-    print('Closing connection...')
-    sock.close()
+accept()
+t1 = threading.Thread(target=read)
+t1.daemon = True
+t1.start()
+write()
