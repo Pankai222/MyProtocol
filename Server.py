@@ -9,56 +9,65 @@ server_address = ('localhost', 43098)
 print('Starting up on {} port {}'.format(*server_address))
 sock.bind(server_address)
 
-counter = 1
 connection = True
 
-try:
-    request, client_address = sock.recvfrom(4096)
-    if request.decode() == socket.gethostbyname(socket.gethostname()):
-        sock.sendto(b'accept ' + request, client_address)
-        print('accept ' + request.decode())
 
-    while connection:
-        stop = True
-        # setting available idle-time for recvfrom-function
-        sock.settimeout(4.0)
-        current_time = time.time()
-        timeout = current_time+3
-        runtime = round(current_time - timeout)
-        print('\nWaiting to receive message...')
+def server():
+    stop = False
+    counter = 1
+    try:
+        request, client_address = sock.recvfrom(4096)
+        if request.decode() == socket.gethostbyname(socket.gethostname()):
+            sock.sendto(b'accept ' + request, client_address)
+            print('accept ' + request.decode())
 
-        data, client_address = sock.recvfrom(4096)
+        while connection:
+            try:
+                if stop:
+                    sock.sendto(b'con-res 0xFE', client_address)
+                # setting available idle-time for recvfrom-function
+                sock.settimeout(4.0)
+                print('\nWaiting to receive message...')
 
-        # splitting message from client into list, then checking if index 1 is above server's counter
-        split = data.decode().split("#")
-        try:
-            if int(split[1]) > counter:
-                print('Package incomplete, closing connection...')
-                sock.sendto(b'Package incomplete' + b'#' + str(counter).encode(), client_address)
-                break
+                data, client_address = sock.recvfrom(4096)
 
-        except IndexError:
-            print(data.decode())
-            break
+                # splitting message from client into list, then checking if index 1 is above server's counter
+                try:
+                    split = data.decode().split("#")
+                    if int(split[1]) > counter:
+                        print('Package incomplete, closing connection...')
+                        sock.sendto(b'Package incomplete' + b'#' + str(counter).encode(), client_address)
+                        break
 
-        if split[0] == 'END':
-            sock.sendto(b'END', client_address)
-            break
-        # Formats the variables above and puts them into arguments {} in the string below
-        print('received {} bytes from {}'.format(len(data), client_address))
-        print('Message from {}:'.format(client_address), split[0])
+                except IndexError:
+                    print(data.decode())
+                    break
 
-        if data:
-            sock.sendto(b'I am a server' + b'#' + str(counter).encode(), client_address)
-            counter += 2
+                if split[0] == 'END':
+                    print('Client has closed connection')
+                    break
 
-except socket.timeout:
-    print('timeout')
+                if split[0] == 'con-res 0xFE':
+                    break
+                # Formats the variables above and puts them into arguments {} in the string below
+                print('received {} bytes from {}'.format(len(data), client_address))
+                print('Message from {}:'.format(client_address), split[0])
 
-# Handles exception given if program is stopped while waiting for user input
-except KeyboardInterrupt:
-    print('Shutting down server...')
+                if data:
+                    sock.sendto(b'I am a server' + b'#' + str(counter).encode(), client_address)
+                    counter += 2
 
-finally:
-    sock.close()
+            except socket.timeout:
+                print('Socket has reached timeout')
+                stop = True
+                continue
 
+    # Handles exception given if program is stopped while waiting for user input
+    except KeyboardInterrupt:
+        print('Shutting down server...')
+
+    finally:
+        sock.close()
+
+
+server()

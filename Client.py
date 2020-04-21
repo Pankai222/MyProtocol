@@ -1,7 +1,6 @@
 import socket
 import threading
 import time
-import sys
 
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -10,7 +9,9 @@ server_address = ('localhost', 43098)
 print('Connecting to server...\n')
 
 client_ip = socket.gethostbyname(socket.gethostname())
-start = True
+# Creating a mutable list for stopping write()-function
+_START = [True]
+_con_res = [False]
 
 
 def accept():
@@ -38,33 +39,26 @@ def accept():
 
 
 def read():
-    start = True
-    try:
-        while True:
-            data, server = sock.recvfrom(4096)
-            if data.decode() == 'con-res 0xFE':
-                sock.sendto(b'con-res 0xFE', server_address)
-                break
-            data_split = data.decode().split("#")
-            if data_split[0] == 'Package incomplete':
-                print('Error in data transfer, closing connection...')
-                break
-            if data.decode() == 'con-res 0xFE':
-                sock.sendto(b'con-res 0xFE', server_address)
-                break
-            if data_split[0] == 'END':
-                break
-            print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
-    except socket.timeout:
-        print('')
-    finally:
-        sock.close()
+    while True:
+        data, server = sock.recvfrom(4096)
+        data_split = data.decode().split("#")
+        if data_split[0] == 'Package incomplete':
+            print('Error in data transfer: {}'.format(data_split[0]))
+            break
+        if data.decode() == 'con-res 0xFE':
+            _con_res[0] = True
+            print('\n' + data.decode() + ' received. Your next input will close the program.')
+            break
+        if data_split[0] == 'END':
+            break
+        print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
+    _START[0] = False
 
 
 def write():
-    counter = 2
+    counter = 0
     try:
-        while start:
+        while _START[0]:
             print('\nYour message: ', end='')
             message = input().encode() + b'#' + str(counter).encode()
             msg_split = message.decode().split("#")
@@ -76,17 +70,22 @@ def write():
                 print('Closing connection...')
                 break
             time.sleep(0.1)
-
+        if _con_res[0]:
+            sock.sendto(b'con-res 0xFE', server_address)
     except KeyboardInterrupt:
         print('\nClient closed unexpectedly')
 
+    finally:
+        sock.close()
+
 
 def keep_alive():
-    print('lol')
+    print('')
 
 
 accept()
 t1 = threading.Thread(target=read)
 t1.daemon = True
+# t2 = threading.Thread(target=keep_alive())
 t1.start()
 write()
