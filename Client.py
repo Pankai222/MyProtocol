@@ -1,6 +1,10 @@
 import socket
 import threading
 import time
+from configparser import ConfigParser
+
+conf = ConfigParser()
+conf.read("opt.conf")
 
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -11,7 +15,7 @@ print('Connecting to server...\n')
 client_ip = socket.gethostbyname(socket.gethostname())
 # Creating a mutable list for stopping write()-function
 _START = [True]
-_con_res = [False]
+_conRES = [False]
 
 
 def accept():
@@ -40,16 +44,19 @@ def accept():
 
 def read():
     while True:
-        data, server = sock.recvfrom(4096)
+        data, server = sock.recvfrom(25)
         data_split = data.decode().split("#")
-        if data_split[0] == 'Package incomplete':
+        if data_split[0] == 'con-h 0x00':
+            continue
+        elif data_split[0] == 'Package incomplete':
             print('Error in data transfer: {}'.format(data_split[0]))
             break
-        if data.decode() == 'con-res 0xFE':
-            _con_res[0] = True
+        elif data.decode() == 'con-res 0xFE':
+            sock.sendto(b'con-res 0xFE', server_address)
             print('\n' + data.decode() + ' received. Your next input will close the program.')
+            _conRES[0] = True
             break
-        if data_split[0] == 'END':
+        elif data_split[0] == 'END':
             break
         print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
     _START[0] = False
@@ -70,8 +77,6 @@ def write():
                 print('Closing connection...')
                 break
             time.sleep(0.1)
-        if _con_res[0]:
-            sock.sendto(b'con-res 0xFE', server_address)
     except KeyboardInterrupt:
         print('\nClient closed unexpectedly')
 
@@ -80,12 +85,22 @@ def write():
 
 
 def keep_alive():
-    print('')
+    message = 'con-h 0x00'.encode()
+    try:
+        if conf.getboolean("client", "KeepALive"):
+            while True:
+                time.sleep(3)
+                sock.sendto(message, server_address)
+
+    except KeyboardInterrupt:
+        print('')
 
 
 accept()
 t1 = threading.Thread(target=read)
 t1.daemon = True
-# t2 = threading.Thread(target=keep_alive())
+t2 = threading.Thread(target=keep_alive)
+t2.daemon = True
 t1.start()
+t2.start()
 write()

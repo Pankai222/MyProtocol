@@ -1,5 +1,4 @@
 import socket
-import time
 
 # Create a UDP socket
 # First argument specifies address family, second specifies socket type (in this case datagram)
@@ -29,7 +28,7 @@ def server():
                 sock.settimeout(4.0)
                 print('\nWaiting to receive message...')
 
-                data, client_address = sock.recvfrom(4096)
+                data, client_address = sock.recvfrom(25)
 
                 # splitting message from client into list, then checking if index 1 is above server's counter
                 try:
@@ -40,8 +39,12 @@ def server():
                         break
 
                 except IndexError:
-                    print(data.decode())
-                    break
+                    if data.decode() == 'con-h 0x00':
+                        sock.sendto(b'con-h 0x00' + b'#' + str(counter).encode(), client_address)
+                        continue
+                    else:
+                        print(data.decode())
+                        break
 
                 if split[0] == 'END':
                     print('Client has closed connection')
