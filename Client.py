@@ -2,21 +2,20 @@ import socket
 import threading
 import time
 from configparser import ConfigParser
-import Timeclass as help
+import Timeclass as myTime
 
 conf = ConfigParser()
 conf.read("opt.conf")
 
-# Create a UDP socket
+# create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# Setting available idle time for socket
+# setting available idle time for socket
 server_address = ('localhost', 43098)
 print('Connecting to server...\n')
 
 client_ip = socket.gethostbyname(socket.gethostname())
-# Creating a mutable list for stopping write()-function
+# creating a mutable list for stopping write()-function
 _START = [True]
-_conRES = [False]
 
 
 def accept():
@@ -44,6 +43,7 @@ def accept():
             accept()
 
 
+# background-thread that listens for datagram-messages and error-codes from server and prints to client
 def read():
     while True:
         data, server = sock.recvfrom(4096)
@@ -59,7 +59,6 @@ def read():
         elif data.decode() == 'con-res 0xFE':
             sock.sendto(b'con-res 0xFE', server_address)
             print('\n' + data.decode() + ' received. Your next input will close the program.')
-            _conRES[0] = True
             break
         elif data_split[0] == 'END':
             break
@@ -67,20 +66,24 @@ def read():
     _START[0] = False
 
 
+# function that waits for input from user, prints it out in nice format, then sends to server
 def write():
     counter = 0
     try:
         while _START[0]:
+            # sends predefined number of messages if message_flood is set to True
             if conf.getboolean("client", "message_flood"):
                 for i in range(26):
                     sock.sendto(
-                        str(help.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
+                        str(myTime.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
                         server_address)
                 continue
             print('\nYour message: ', end='')
-            message = str(help.clock()).encode() + b'<!split!>' + input().encode() + b'<!split!>' + str(counter).encode()
+            # this bitch of a message contains: current time, split, user-input, split, message-counter
+            message = str(myTime.clock()).encode() + b'<!split!>' + input().encode() + b'<!split!>' + \
+                str(counter).encode()
             msg_split = message.decode().split("<!split!>")
-            print('[{}] Client Message-{}: '.format(help.clock(), counter) + msg_split[1])
+            print('[{}] Client Message-{}: '.format(myTime.clock(), counter) + msg_split[1])
             counter += 2
             sock.sendto(message, server_address)
             if msg_split[1] == 'END':
@@ -95,6 +98,7 @@ def write():
         sock.close()
 
 
+# reads from config-file and sends message every 3 seconds if keep_alive is set to True
 def keep_alive():
     message = 'con-h 0x00'.encode()
     try:

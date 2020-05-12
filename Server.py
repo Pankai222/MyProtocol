@@ -1,22 +1,21 @@
 import socket
-import Timeclass as help
-import threading
+import Timeclass as myTime
 
-# Create a UDP socket
-# First argument specifies address family, second specifies socket type (in this case datagram)
+# create a UDP socket
+# first argument specifies address family, second specifies socket type (in this case datagram)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# Bind the socket to the port
+# bind the socket to the port
 server_address = ('localhost', 43098)
 print('Starting up on {} port {}'.format(*server_address))
 sock.bind(server_address)
 
 
-# TODO make the server increment msg_counter for every data sent in the same interval
 def server():
     connection = False
     stop = False
     counter = 1
     msg_counter = 0
+    # listens for client ack-message and sends back accept-message; disconnects if none is received
     try:
         request, client_address = sock.recvfrom(4096)
         if request.decode() == socket.gethostbyname(socket.gethostname()):
@@ -39,12 +38,14 @@ def server():
 
                 # splitting message from client into list, then checking if index 1 is above server's counter
                 try:
+                    # splits incoming message into array separated by predefined split, so that message-time, message
+                    # and counter can be extracted and used separately
                     split = data.decode().split("<!split!>")
                     if int(split[2]) > counter:
                         print('Package incomplete, closing connection...')
                         sock.sendto(b'Package incomplete' + b'<!split!>' + str(counter).encode(), client_address)
                         break
-
+                # bypasses the index error given if the message only consists of a string
                 except IndexError:
                     if data.decode() == 'con-h 0x00':
                         print('Client-message: ' + data.decode())
@@ -60,32 +61,32 @@ def server():
 
                 if split[0] == 'con-res 0xFE':
                     break
-                # Formats the variables above and puts them into arguments {} in the string below
+                # formats the variables above and puts them into arguments {} in the string below
                 print('received {} bytes from {}'.format(len(data), client_address))
                 print('Message from {}:'.format(client_address), split[1])
-                # Sends error-message if time of message has been the same x number of times in a row
+                # sends error-message if time of message has been the same x number of times in a row
                 if msg_counter > 25:
                     print('Package number exceeded, closing connection...')
                     sock.sendto(b'Package limit reached', client_address)
                     break
 
                 if data:
-                    # Checks if the time attached to incoming message is the same as current time
+                    # checks if the time attached to incoming message is the same as current time
                     # and increments accordingly
-                    if split[0] == help.clock():
+                    if split[0] == myTime.clock():
                         msg_counter += 1
                     else:
                         msg_counter = 0
-                    sock.sendto(str('[' + help.clock() + ']').encode() + b'<!split!>' + b'I am a server' + b'<!split!>' +
-                                str(counter).encode(), client_address)
+                    sock.sendto(str('[' + myTime.clock() + ']').encode() + b'<!split!>' + b'I am a server'
+                                + b'<!split!>' + str(counter).encode(), client_address)
                     counter += 2
-
+            # throws exception if socket timeout is reached and continues loop to send stop-message to client
             except socket.timeout:
                 print('Socket has reached timeout')
                 stop = True
                 continue
 
-    # Handles exception given if program is stopped while waiting for user input
+    # handles exception given if program is stopped while waiting for user input
     except KeyboardInterrupt:
         print('Shutting down server...')
 
@@ -93,24 +94,4 @@ def server():
         sock.close()
 
 
-def package_limiter():
-    counter = 0
-    while True:
-        try:
-            data, client_ip = sock.recvfrom(4096)
-            split = data.decode().split('#')
-            if split[0] == help.clock():
-                counter += 1
-                if counter >= 25:
-                    print('What the fuuuuck')
-                    break
-        except IndexError:
-            package_limiter()
-
-        except socket.timeout:
-            continue
-
-
-t1 = threading.Thread(target=package_limiter)
-t1.daemon = True
 server()
