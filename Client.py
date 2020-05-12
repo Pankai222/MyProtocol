@@ -69,15 +69,15 @@ def read():
 # function that waits for input from user, prints it out in nice format, then sends to server
 def write():
     counter = 0
+    # sends large number of messages if message_flood is set to True
+    if conf.getboolean("client", "message_flood"):
+        for i in range(26):
+            sock.sendto(
+                str(myTime.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
+                server_address)
+        time.sleep(0.1)
     try:
         while _START[0]:
-            # sends predefined number of messages if message_flood is set to True
-            if conf.getboolean("client", "message_flood"):
-                for i in range(26):
-                    sock.sendto(
-                        str(myTime.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
-                        server_address)
-                continue
             print('\nYour message: ', end='')
             # this bitch of a message contains: current time, split, user-input, split, message-counter
             message = str(myTime.clock()).encode() + b'<!split!>' + input().encode() + b'<!split!>' + \

@@ -1,6 +1,9 @@
 import socket
 import Timeclass as myTime
+from configparser import ConfigParser
 
+conf = ConfigParser()
+conf.read("opt.conf")
 # create a UDP socket
 # first argument specifies address family, second specifies socket type (in this case datagram)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -64,8 +67,9 @@ def server():
                 # formats the variables above and puts them into arguments {} in the string below
                 print('received {} bytes from {}'.format(len(data), client_address))
                 print('Message from {}:'.format(client_address), split[1])
-                # sends error-message if time of message has been the same x number of times in a row
-                if msg_counter > 25:
+                # sends error-message if time of message has been the same x number of times in a row, thereby
+                # exceeding message-limit
+                if msg_counter > conf.getint("client", "max_packages"):
                     print('Package number exceeded, closing connection...')
                     sock.sendto(b'Package limit reached', client_address)
                     break
