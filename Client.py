@@ -2,6 +2,7 @@ import socket
 import threading
 import time
 from configparser import ConfigParser
+import Timeclass as help
 
 conf = ConfigParser()
 conf.read("opt.conf")
@@ -44,12 +45,15 @@ def accept():
 
 def read():
     while True:
-        data, server = sock.recvfrom(25)
+        data, server = sock.recvfrom(4096)
         data_split = data.decode().split("#")
         if data_split[0] == 'con-h 0x00':
             continue
         elif data_split[0] == 'Package incomplete':
-            print('Error in data transfer: {}'.format(data_split[0]))
+            print('Error in data transfer.')
+            break
+        elif data_split[0] == 'Package limit reached':
+            print(data_split[0] + ' closing connection...')
             break
         elif data.decode() == 'con-res 0xFE':
             sock.sendto(b'con-res 0xFE', server_address)
@@ -58,7 +62,7 @@ def read():
             break
         elif data_split[0] == 'END':
             break
-        print('Server Response-{}: {!r}'.format(data_split[1], data_split[0]))
+        print('{} Server Response-{}: {!r}'.format(data_split[0], data_split[2], data_split[1]))
     _START[0] = False
 
 
@@ -67,12 +71,12 @@ def write():
     try:
         while _START[0]:
             print('\nYour message: ', end='')
-            message = input().encode() + b'#' + str(counter).encode()
+            message = str(help.clock()).encode() + b'#' + input().encode() + b'#' + str(counter).encode()
             msg_split = message.decode().split("#")
-            print('Client Message-{}: '.format(counter) + msg_split[0])
+            print('[{}] Client Message-{}: '.format(help.clock(), counter) + msg_split[1])
             counter += 2
             sock.sendto(message, server_address)
-            if msg_split[0] == 'END':
+            if msg_split[1] == 'END':
                 sock.sendto(message, server_address)
                 print('Closing connection...')
                 break
