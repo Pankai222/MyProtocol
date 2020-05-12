@@ -37,6 +37,7 @@ def accept():
             else:
                 print('Client Com-{}: accept'.format(counter))
                 print('Server Com-{}: '.format(counter) + request.decode())
+                sock.sendto(b'accept ' + client_ip.encode(), server_address)
                 break
         except socket.timeout:
             print('No connection found, retrying...')
@@ -46,14 +47,14 @@ def accept():
 def read():
     while True:
         data, server = sock.recvfrom(4096)
-        data_split = data.decode().split("#")
+        data_split = data.decode().split("<!split!>")
         if data_split[0] == 'con-h 0x00':
             continue
         elif data_split[0] == 'Package incomplete':
             print('Error in data transfer.')
             break
         elif data_split[0] == 'Package limit reached':
-            print(data_split[0] + ' closing connection...')
+            print(data_split[0] + ', closing connection...')
             break
         elif data.decode() == 'con-res 0xFE':
             sock.sendto(b'con-res 0xFE', server_address)
@@ -70,9 +71,15 @@ def write():
     counter = 0
     try:
         while _START[0]:
+            if conf.getboolean("client", "message_flood"):
+                for i in range(26):
+                    sock.sendto(
+                        str(help.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
+                        server_address)
+                continue
             print('\nYour message: ', end='')
-            message = str(help.clock()).encode() + b'#' + input().encode() + b'#' + str(counter).encode()
-            msg_split = message.decode().split("#")
+            message = str(help.clock()).encode() + b'<!split!>' + input().encode() + b'<!split!>' + str(counter).encode()
+            msg_split = message.decode().split("<!split!>")
             print('[{}] Client Message-{}: '.format(help.clock(), counter) + msg_split[1])
             counter += 2
             sock.sendto(message, server_address)
@@ -91,7 +98,7 @@ def write():
 def keep_alive():
     message = 'con-h 0x00'.encode()
     try:
-        if conf.getboolean("client", "KeepALive"):
+        if conf.getboolean("client", "keep_alive"):
             while True:
                 time.sleep(3)
                 sock.sendto(message, server_address)
@@ -108,3 +115,4 @@ t2.daemon = True
 t1.start()
 t2.start()
 write()
+

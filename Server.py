@@ -10,11 +10,10 @@ server_address = ('localhost', 43098)
 print('Starting up on {} port {}'.format(*server_address))
 sock.bind(server_address)
 
-connection = True
-
 
 # TODO make the server increment msg_counter for every data sent in the same interval
 def server():
+    connection = False
     stop = False
     counter = 1
     msg_counter = 0
@@ -22,7 +21,11 @@ def server():
         request, client_address = sock.recvfrom(4096)
         if request.decode() == socket.gethostbyname(socket.gethostname()):
             sock.sendto(b'accept ' + request, client_address)
-            print('accept ' + request.decode())
+            print('connection request received from ' + request.decode())
+            print('accept sent to ' + request.decode())
+            request, client_address = sock.recvfrom(4096)
+            print(request.decode())
+            connection = True
 
         while connection:
             try:
@@ -36,15 +39,16 @@ def server():
 
                 # splitting message from client into list, then checking if index 1 is above server's counter
                 try:
-                    split = data.decode().split("#")
+                    split = data.decode().split("<!split!>")
                     if int(split[2]) > counter:
                         print('Package incomplete, closing connection...')
-                        sock.sendto(b'Package incomplete' + b'#' + str(counter).encode(), client_address)
+                        sock.sendto(b'Package incomplete' + b'<!split!>' + str(counter).encode(), client_address)
                         break
 
                 except IndexError:
                     if data.decode() == 'con-h 0x00':
-                        sock.sendto(b'con-h 0x00' + b'#' + str(counter).encode(), client_address)
+                        print('Client-message: ' + data.decode())
+                        sock.sendto(b'con-h 0x00' + b'<!split!>' + str(counter).encode(), client_address)
                         continue
                     else:
                         print(data.decode())
@@ -59,18 +63,20 @@ def server():
                 # Formats the variables above and puts them into arguments {} in the string below
                 print('received {} bytes from {}'.format(len(data), client_address))
                 print('Message from {}:'.format(client_address), split[1])
-
+                # Sends error-message if time of message has been the same x number of times in a row
                 if msg_counter > 25:
                     print('Package number exceeded, closing connection...')
                     sock.sendto(b'Package limit reached', client_address)
                     break
 
                 if data:
+                    # Checks if the time attached to incoming message is the same as current time
+                    # and increments accordingly
                     if split[0] == help.clock():
                         msg_counter += 1
                     else:
                         msg_counter = 0
-                    sock.sendto(str('[' + help.clock() + ']').encode() + b'#' + b'I am a server' + b'#' +
+                    sock.sendto(str('[' + help.clock() + ']').encode() + b'<!split!>' + b'I am a server' + b'<!split!>' +
                                 str(counter).encode(), client_address)
                     counter += 2
 
