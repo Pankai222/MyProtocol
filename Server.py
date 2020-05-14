@@ -21,13 +21,23 @@ def server():
     # listens for client ack-message and sends back accept-message; disconnects if none is received
     try:
         request, client_address = sock.recvfrom(4096)
+        # checks if SYN-message from client contains correct ip-address, then sends SYN-ACK before receiving
+        # final ACK from client
         if request.decode() == socket.gethostbyname(socket.gethostname()):
             sock.sendto(b'accept ' + request, client_address)
-            print('connection request received from ' + request.decode())
-            print('accept sent to ' + request.decode())
-            request, client_address = sock.recvfrom(4096)
-            print(request.decode())
+            handshake1 = 'connection request received from ' + request.decode()
+            handshake2 = 'accept sent to ' + request.decode()
+            print(handshake1 + '\n''' + handshake2)
+            accept, client_address = sock.recvfrom(4096)
+            handshake3 = accept.decode().split()[0] + ' received from ' + accept.decode().split()[1]
+            print(handshake3)
+            final_handshake = '\n[' + myTime.clock() + '] ' + handshake1 + '\n[' + myTime.clock() + '] '\
+                              + handshake2 + '\n[' + myTime.clock() + '] ' + handshake3 + '\n'
+            save_to_file(final_handshake)
             connection = True
+        else:
+            print('accept not received, closing connection...')
+            sock.sendto(b'END', client_address)
 
         while connection:
             try:
@@ -35,42 +45,45 @@ def server():
                     sock.sendto(b'con-res 0xFE', client_address)
                 # setting available idle-time for recvfrom-function
                 sock.settimeout(4.0)
-                print('\nWaiting to receive message...')
+                print('\nwaiting to receive message...')
 
                 data, client_address = sock.recvfrom(4096)
 
-                # splitting message from client into list, then checking if index 1 is above server's counter
                 try:
                     # splits incoming message into array separated by predefined split, so that message-time, message
                     # and counter can be extracted and used separately
                     split = data.decode().split("<!split!>")
-                    if int(split[2]) > counter:
-                        print('Package incomplete, closing connection...')
+                    # checks if client's counter is either above or below server's counter
+                    if int(split[2]) >= counter or int(split[2]) < int(counter)-1:
+                        print('package incomplete, closing connection...')
                         sock.sendto(b'Package incomplete' + b'<!split!>' + str(counter).encode(), client_address)
                         break
                 # bypasses the index error given if the message only consists of a string
                 except IndexError:
                     if data.decode() == 'con-h 0x00':
-                        print('Client-message: ' + data.decode())
+                        print('client-message: ' + data.decode())
                         sock.sendto(b'con-h 0x00' + b'<!split!>' + str(counter).encode(), client_address)
                         continue
                     else:
                         print(data.decode())
                         break
+                except ValueError:
+                    sock.sendto(b'Package incomplete' + b'<!split!>' + str(counter).encode(), client_address)
+                    break
 
                 if split[1] == 'END':
-                    print('Client has closed connection')
+                    print('client has closed connection')
                     break
 
                 if split[0] == 'con-res 0xFE':
                     break
                 # formats the variables above and puts them into arguments {} in the string below
                 print('received {} bytes from {}'.format(len(data), client_address))
-                print('Message from {}:'.format(client_address), split[1])
+                print('message from {}:'.format(client_address), split[1])
                 # sends error-message if time of message has been the same x number of times in a row, thereby
                 # exceeding message-limit
                 if msg_counter > conf.getint("client", "max_packages"):
-                    print('Package number exceeded, closing connection...')
+                    print('package number exceeded, closing connection...')
                     sock.sendto(b'Package limit reached', client_address)
                     break
 
@@ -86,16 +99,21 @@ def server():
                     counter += 2
             # throws exception if socket timeout is reached and continues loop to send stop-message to client
             except socket.timeout:
-                print('Socket has reached timeout')
+                print('socket has reached timeout')
                 stop = True
                 continue
 
     # handles exception given if program is stopped while waiting for user input
     except KeyboardInterrupt:
-        print('Shutting down server...')
+        print('shutting down server...')
 
     finally:
         sock.close()
+
+
+def save_to_file(handshake):
+    log = open("handshake_log", "a")
+    log.write(handshake)
 
 
 server()

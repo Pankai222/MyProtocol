@@ -32,11 +32,13 @@ def accept():
             split = request.decode().split()
             if split[0] != 'accept':
                 print('Failed to receive accept-message, closing connection...')
+                _START[0] = False
                 break
             else:
                 print('Client Com-{}: accept'.format(counter))
                 print('Server Com-{}: '.format(counter) + request.decode())
                 sock.sendto(b'accept ' + client_ip.encode(), server_address)
+                print('\nWrite END to close client')
                 break
         except socket.timeout:
             print('No connection found, retrying...')
@@ -51,7 +53,7 @@ def read():
         if data_split[0] == 'con-h 0x00':
             continue
         elif data_split[0] == 'Package incomplete':
-            print('Error in data transfer.')
+            print('Error in data transfer, closing connection....')
             break
         elif data_split[0] == 'Package limit reached':
             print(data_split[0] + ', closing connection...')
@@ -75,6 +77,7 @@ def write():
             sock.sendto(
                 str(myTime.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
                 server_address)
+            counter += 2
         time.sleep(0.1)
     try:
         while _START[0]:
