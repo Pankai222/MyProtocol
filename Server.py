@@ -41,8 +41,8 @@ def server():
         else:
             # Log failed attempt at connecting and close connection if IP not received from client
             print('IP-address not received, closing connection...')
-            save_to_file('\n' + myTime.get_date() + ' ' + myTime.clock() + ' Failed to receive IP-address from client\n'
-                                                                           'connection has been closed\n')
+            save_to_file('\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' +
+                         'Failed to receive IP-address from client\n' + 'connection has been closed\n')
             sock.sendto(b'END', client_address)
 
         while connection:

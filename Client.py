@@ -122,7 +122,7 @@ def keep_alive():
 def bypass_handshake():
     sock.sendto(b'hello', server_address)
 
-
+bypass_handshake()
 accept()
 t1 = threading.Thread(target=read)
 t1.daemon = True
