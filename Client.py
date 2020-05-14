@@ -97,6 +97,11 @@ def write():
     except KeyboardInterrupt:
         print('\nClient closed unexpectedly')
 
+    except TypeError:
+        print('\nError in counter')
+        sock.sendto(str(myTime.clock()).encode() + b'<!split!>' + b'END' + b'<!split!>' +
+                    str(counter).encode(), server_address)
+
     finally:
         sock.close()
 
