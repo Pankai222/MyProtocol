@@ -73,7 +73,7 @@ def write():
     counter = 0
     # sends large number of messages if message_flood is set to True
     if conf.getboolean("client", "message_flood"):
-        for i in range(26):
+        for i in range(conf.getint("client", "packages")):
             sock.sendto(
                 str(myTime.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
                 server_address)

@@ -31,8 +31,9 @@ def server():
             accept, client_address = sock.recvfrom(4096)
             handshake3 = accept.decode().split()[0] + ' received from ' + accept.decode().split()[1]
             print(handshake3)
-            final_handshake = '\n[' + myTime.clock() + '] ' + handshake1 + '\n[' + myTime.clock() + '] '\
-                              + handshake2 + '\n[' + myTime.clock() + '] ' + handshake3 + '\n'
+            final_handshake = '\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' + handshake1 + '\n[' + \
+                              myTime.get_date() + ' ' + myTime.clock() + '] '\
+                              + handshake2 + '\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' + handshake3 + '\n'
             save_to_file(final_handshake)
             connection = True
         else:
@@ -112,7 +113,7 @@ def server():
 
 
 def save_to_file(handshake):
-    log = open("handshake_log", "a")
+    log = open("handshake_log.txt", "a")
     log.write(handshake)
 
 
