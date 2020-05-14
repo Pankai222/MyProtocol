@@ -18,7 +18,7 @@ def server():
     stop = False
     counter = 1
     msg_counter = 0
-    # listens for client ack-message and sends back accept-message; disconnects if none is received
+    # listens for client syn-message and sends back accept-message; disconnects if none is received
     try:
         request, client_address = sock.recvfrom(4096)
         # checks if SYN-message from client contains correct ip-address, then sends SYN-ACK before receiving
