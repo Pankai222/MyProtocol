@@ -33,11 +33,16 @@ def server():
             print(handshake3)
             final_handshake = '\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' + handshake1 + '\n[' + \
                               myTime.get_date() + ' ' + myTime.clock() + '] '\
-                              + handshake2 + '\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' + handshake3 + '\n'
+                              + handshake2 + '\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' + \
+                              handshake3 + '\nconnection has been established\n'
+
             save_to_file(final_handshake)
             connection = True
         else:
-            print('accept not received, closing connection...')
+            # Log failed attempt at connecting and close connection if IP not received from client
+            print('IP-address not received, closing connection...')
+            save_to_file('\n' + myTime.get_date() + ' ' + myTime.clock() + ' Failed to receive IP-address from client\n'
+                                                                           'connection has been closed\n')
             sock.sendto(b'END', client_address)
 
         while connection:

@@ -73,7 +73,7 @@ def write():
     counter = 0
     # sends large number of messages if message_flood is set to True
     if conf.getboolean("client", "message_flood"):
-        for i in range(conf.getint("client", "packages")):
+        for i in range(conf.getint("client", "packages_in_flood")):
             sock.sendto(
                 str(myTime.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
                 server_address)
@@ -112,6 +112,10 @@ def keep_alive():
 
     except KeyboardInterrupt:
         print('')
+
+
+def bypass_handshake():
+    sock.sendto(b'hello', server_address)
 
 
 accept()
