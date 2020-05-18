@@ -40,15 +40,9 @@ def server():
                 save_to_file(final_handshake)
                 connection = True
             else:
-                print('accept not received from client, closing program...')
-                save_to_file('\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' +
-                             'Failed to receive accept from client\n' + 'connection has been closed\n')
-                sock.sendto(b'END', client_address)
+                log_error(client_address)
         else:
-            print('error in establising connection, closing program...')
-            save_to_file('\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' +
-                         'Failed to receive accept from client\n' + 'connection has been closed\n')
-            sock.sendto(b'END', client_address)
+            log_error(client_address)
 
         while connection:
             try:
@@ -88,10 +82,10 @@ def server():
         print('shutting down server...')
 
     except OSError:
-        print('error in establising connection, closing program...')
-        save_to_file('\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' +
-                     'Failed to receive accept from client\n' + 'connection has been closed\n')
-        sock.sendto(b'END', client_address)
+        log_error(client_address)
+
+    except IndexError:
+        log_error(client_address)
 
     finally:
         sock.close()
@@ -100,6 +94,13 @@ def server():
 def save_to_file(handshake):
     log = open("handshake_log.txt", "a")
     log.write(handshake)
+
+
+def log_error(client_address):
+    print('failed to establish handshake, closing program...')
+    save_to_file('\n[' + myTime.get_date() + ' ' + myTime.clock() + '] ' +
+                 'Failed to receive accept from client\n' + 'connection has been closed\n')
+    sock.sendto(b'END', client_address)
 
 
 server()

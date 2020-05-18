@@ -20,11 +20,9 @@ global server_counter
 global counter
 
 
-def accept():
-    global server_counter
+def handshake():
     global counter
     counter = 0
-    server_counter = 0
     while True:
         try:
             sock.settimeout(10)
@@ -44,12 +42,12 @@ def accept():
                 break
         except socket.timeout:
             print('No connection found')
-            accept()
 
 
 # background-thread that listens for datagram-messages and error-codes from server and prints to client
 def read():
     global server_counter
+    server_counter = None
     try:
         while _START[0]:
             data, server = sock.recvfrom(4096)
@@ -86,11 +84,15 @@ def write():
             sock.sendto(message, server_address)
             time.sleep(0.1)
             counter = server_counter + 1
+
     except KeyboardInterrupt:
         print('\nConnection closed')
 
     except TypeError:
         print('\nError in counter')
+
+    except NameError:
+        print('Connection has not been established')
 
     finally:
         sock.close()
@@ -110,26 +112,29 @@ def keep_alive():
 
 
 def bypass_handshake():
-    sock.sendto(b'hello', server_address)
+    sock.sendto(b'com-0', server_address)
 
 
 def ddos():
     global counter
     counter = 0
     # sends large number of messages if DDoS is set to True
-    if conf.getboolean("client", "DDoS"):
-        for i in range(conf.getint("client", "packages_in_DDoS")):
-            message = '\nmsg-{}=hejsa'.format(counter).encode()
-            sock.sendto(message, server_address)
-            print(message.decode())
-            data, server = sock.recvfrom(4096)
-            s_counter = int(re.search(r"\d+", data.decode()).group())
-            print(data.decode())
-            counter = s_counter + 1
-        time.sleep(0.1)
+    try:
+        if conf.getboolean("client", "DDoS"):
+            for i in range(conf.getint("client", "packages_in_DDoS")):
+                message = '\nmsg-{}=hejsa'.format(counter).encode()
+                sock.sendto(message, server_address)
+                print(message.decode())
+                data, server = sock.recvfrom(4096)
+                s_counter = int(re.search(r"\d+", data.decode()).group())
+                print(data.decode())
+                counter = s_counter + 1
+            time.sleep(0.1)
+    except AttributeError:
+        print('Connection has not been established')
 
 
-accept()
+handshake()
 ddos()
 t1 = threading.Thread(target=read)
 t1.daemon = True
@@ -138,4 +143,3 @@ t2.daemon = True
 t1.start()
 t2.start()
 write()
-
