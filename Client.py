@@ -2,7 +2,7 @@ import socket
 import threading
 import time
 from configparser import ConfigParser
-import Timeclass as myTime
+import re
 
 conf = ConfigParser()
 conf.read("opt.conf")
@@ -16,91 +16,81 @@ print('Connecting to server...\n')
 client_ip = socket.gethostbyname(socket.gethostname())
 # creating a mutable list for stopping write()-function
 _START = [True]
+global server_counter
+global counter
 
 
 def accept():
+    global server_counter
+    global counter
     counter = 0
+    server_counter = 0
     while True:
         try:
             sock.settimeout(10)
-            print('Client Com-{}: '.format(counter) + client_ip + ' sending connection request')
-            sock.sendto(client_ip.encode(), server_address)
+            print('com-{} '.format(counter) + client_ip)
+            sock.sendto(('com-{} '.format(counter) + client_ip).encode(), server_address)
             # calls recvfrom() method and divides the arguments into 2 variables,
             # accept for the data received and server for the connection information
             request, server = sock.recvfrom(4096)
-            # split accept-message and set connected to false if first index is not 'accept'
-            split = request.decode().split()
-            if split[0] != 'accept':
-                print('Failed to receive accept-message, closing connection...')
-                _START[0] = False
+            if request.decode().startswith('com-0 accept ' + client_ip):
+                print(request.decode())
+                sock.sendto('com-{} accept'.format(counter).encode(), server_address)
+                print('com-{} accept'.format(counter))
                 break
             else:
-                print('Client Com-{}: accept'.format(counter))
-                print('Server Com-{}: '.format(counter) + request.decode())
-                sock.sendto(b'accept ' + client_ip.encode(), server_address)
-                print('\nWrite END to close client')
+                print('No accept received, closing connection...')
+                _START[0] = False
                 break
         except socket.timeout:
-            print('No connection found, retrying...')
+            print('No connection found')
             accept()
 
 
 # background-thread that listens for datagram-messages and error-codes from server and prints to client
 def read():
-    while True:
-        data, server = sock.recvfrom(4096)
-        data_split = data.decode().split("<!split!>")
-        if data_split[0] == 'con-h 0x00':
-            continue
-        elif data_split[0] == 'Package incomplete':
-            print('Error in data transfer, closing connection....')
-            break
-        elif data_split[0] == 'Package limit reached':
-            print(data_split[0] + ', closing connection...')
-            break
-        elif data.decode() == 'con-res 0xFE':
-            sock.sendto(b'con-res 0xFE', server_address)
-            print('\n' + data.decode() + ' received. Your next input will close the program.')
-            break
-        elif data_split[0] == 'END':
-            break
-        print('{} Server Response-{}: {!r}'.format(data_split[0], data_split[2], data_split[1]))
+    global server_counter
+    try:
+        while _START[0]:
+            data, server = sock.recvfrom(4096)
+            server_counter = int(re.search(r"\d+", data.decode()).group())
+            if data.decode().endswith('con-h 0x00'):
+                continue
+            elif data.decode().endswith('Package incomplete'):
+                print('Error in data transfer, closing connection....')
+                break
+            elif data.decode().endswith('Package limit reached'):
+                print(data.decode() + ', closing connection...')
+                break
+            elif data.decode() == 'con-res 0xFE':
+                sock.sendto(b'con-res 0xFE', server_address)
+                print('\n' + data.decode() + ' received. Your next input will close the program.')
+                break
+            elif data.decode().endswith('END'):
+                break
+            print(data.decode())
+            time.sleep(0.1)
+    except socket.timeout:
+        print('lol')
     _START[0] = False
 
 
 # function that waits for input from user, prints it out in nice format, then sends to server
 def write():
-    counter = 0
-    # sends large number of messages if message_flood is set to True
-    if conf.getboolean("client", "message_flood"):
-        for i in range(conf.getint("client", "packages_in_flood")):
-            sock.sendto(
-                str(myTime.clock()).encode() + b'<!split!>' + b'message' + b'<!split!>' + str(counter).encode(),
-                server_address)
-            counter += 2
-        time.sleep(0.1)
+    global counter
     try:
         while _START[0]:
-            print('\nYour message: ', end='')
-            # this bitch of a message contains: current time, split, user-input, split, message-counter
-            message = str(myTime.clock()).encode() + b'<!split!>' + input().encode() + b'<!split!>' + \
-                str(counter).encode()
-            msg_split = message.decode().split("<!split!>")
-            print('[{}] Client Message-{}: '.format(myTime.clock(), counter) + msg_split[1])
-            counter += 2
+            print('\nenter message: ', end='')
+            message = ('msg-{}='.format(counter) + input()).encode()
+            print(message.decode())
             sock.sendto(message, server_address)
-            if msg_split[1] == 'END':
-                sock.sendto(message, server_address)
-                print('Closing connection...')
-                break
             time.sleep(0.1)
+            counter = server_counter + 1
     except KeyboardInterrupt:
-        print('\nClient closed unexpectedly')
+        print('\nConnection closed')
 
     except TypeError:
         print('\nError in counter')
-        sock.sendto(str(myTime.clock()).encode() + b'<!split!>' + b'END' + b'<!split!>' +
-                    str(counter).encode(), server_address)
 
     finally:
         sock.close()
@@ -123,7 +113,24 @@ def bypass_handshake():
     sock.sendto(b'hello', server_address)
 
 
+def ddos():
+    global counter
+    counter = 0
+    # sends large number of messages if DDoS is set to True
+    if conf.getboolean("client", "DDoS"):
+        for i in range(conf.getint("client", "packages_in_DDoS")):
+            message = '\nmsg-{}=hejsa'.format(counter).encode()
+            sock.sendto(message, server_address)
+            print(message.decode())
+            data, server = sock.recvfrom(4096)
+            s_counter = int(re.search(r"\d+", data.decode()).group())
+            print(data.decode())
+            counter = s_counter + 1
+        time.sleep(0.1)
+
+
 accept()
+ddos()
 t1 = threading.Thread(target=read)
 t1.daemon = True
 t2 = threading.Thread(target=keep_alive)
