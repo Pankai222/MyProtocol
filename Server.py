@@ -63,8 +63,7 @@ def server():
                 print('received {} bytes from {}'.format(len(data), client_address))
                 print('message from {}: '.format(client_address) + data.decode() + '\n')
 
-                if client_counter == 0 or server_counter == client_counter-1\
-                        and client_counter != 1:
+                if client_counter == 0 or server_counter == client_counter-1 and client_counter != 1:
                     server_counter = client_counter+1
                     sock.sendto(('res-{}='.format(server_counter)+'I am server').encode(), client_address)
                 else:

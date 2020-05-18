@@ -15,26 +15,25 @@ print('Connecting to server...\n')
 
 client_ip = socket.gethostbyname(socket.gethostname())
 # creating a mutable list for stopping write()-function
-_START = [True]
+_START = [True, True]
 global server_counter
 global counter
 
 
 def handshake():
-    global counter
-    counter = 0
+    handshake_counter = 0
     while True:
         try:
             sock.settimeout(10)
-            print('com-{} '.format(counter) + client_ip)
-            sock.sendto(('com-{} '.format(counter) + client_ip).encode(), server_address)
+            print('com-{} '.format(handshake_counter) + client_ip)
+            sock.sendto(('com-{} '.format(handshake_counter) + client_ip).encode(), server_address)
             # calls recvfrom() method and divides the arguments into 2 variables,
             # accept for the data received and server for the connection information
             request, server = sock.recvfrom(4096)
             if request.decode().startswith('com-0 accept ' + client_ip):
                 print(request.decode())
-                sock.sendto('com-{} accept'.format(counter).encode(), server_address)
-                print('com-{} accept'.format(counter))
+                sock.sendto('com-{} accept'.format(handshake_counter).encode(), server_address)
+                print('com-{} accept'.format(handshake_counter))
                 break
             else:
                 print('No accept received, closing connection...')
@@ -69,13 +68,16 @@ def read():
             print(data.decode())
             time.sleep(0.1)
     except socket.timeout:
-        print('lol')
+        print('connection closed')
     _START[0] = False
 
 
-# function that waits for input from user, prints it out in nice format, then sends to server
+# function that waits for input from user, prints it out, then sends to server in format according to protocol
 def write():
     global counter
+    # ensures that counter will not reset to 0 after DDoS, if DDoS is active.
+    if _START[1] is True:
+        counter = 0
     try:
         while _START[0]:
             print('\nenter message: ', end='')
@@ -86,13 +88,13 @@ def write():
             counter = server_counter + 1
 
     except KeyboardInterrupt:
-        print('\nConnection closed')
+        print('\nconnection closed')
 
     except TypeError:
-        print('\nError in counter')
+        print('\nerror in counter')
 
     except NameError:
-        print('Connection has not been established')
+        print('connection has not been established')
 
     finally:
         sock.close()
@@ -121,6 +123,7 @@ def ddos():
     # sends large number of messages if DDoS is set to True
     try:
         if conf.getboolean("client", "DDoS"):
+            _START[1] = False
             for i in range(conf.getint("client", "packages_in_DDoS")):
                 message = '\nmsg-{}=hejsa'.format(counter).encode()
                 sock.sendto(message, server_address)
@@ -131,7 +134,7 @@ def ddos():
                 counter = s_counter + 1
             time.sleep(0.1)
     except AttributeError:
-        print('Connection has not been established')
+        print('connection has not been established')
 
 
 handshake()
