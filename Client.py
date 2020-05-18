@@ -1,5 +1,5 @@
 import socket
-import threading
+from threading import *
 import time
 from configparser import ConfigParser
 import re
@@ -25,8 +25,8 @@ def handshake():
     while True:
         try:
             sock.settimeout(10)
-            print('com-{} '.format(handshake_counter) + client_ip)
             sock.sendto(('com-{} '.format(handshake_counter) + client_ip).encode(), server_address)
+            print('com-{} '.format(handshake_counter) + client_ip)
             # calls recvfrom() method and divides the arguments into 2 variables,
             # accept for the data received and server for the connection information
             request, server = sock.recvfrom(4096)
@@ -46,7 +46,7 @@ def handshake():
 # background-thread that listens for datagram-messages and error-codes from server and prints to client
 def read():
     global server_counter
-    server_counter = None
+    server_counter = 0
     try:
         while _START[0]:
             data, server = sock.recvfrom(4096)
@@ -75,7 +75,7 @@ def read():
 # function that waits for input from user, prints it out, then sends to server in format according to protocol
 def write():
     global counter
-    # ensures that counter will not reset to 0 after DDoS, if DDoS is active.
+    # ensures that counter will not reset to 0 after automated messages if they're active.
     if _START[1] is True:
         counter = 0
     try:
@@ -88,13 +88,10 @@ def write():
             counter = server_counter + 1
 
     except KeyboardInterrupt:
-        print('\nconnection closed')
-
-    except TypeError:
-        print('\nerror in counter')
+        print('\nclosing connection...')
 
     except NameError:
-        print('connection has not been established')
+        print('connection has been closed')
 
     finally:
         sock.close()
@@ -104,7 +101,7 @@ def write():
 def keep_alive():
     message = 'con-h 0x00'.encode()
     try:
-        if conf.getboolean("client", "keep_alive"):
+        if conf.getboolean("client", "KeepALive"):
             while True:
                 time.sleep(3)
                 sock.sendto(message, server_address)
@@ -114,35 +111,53 @@ def keep_alive():
 
 
 def bypass_handshake():
-    sock.sendto(b'com-0', server_address)
+    if conf.getboolean("client", "HandshakeByPass"):
+        sock.sendto(b'com-0', server_address)
+
+
+def automated_message():
+    global counter
+    global server_counter
+    counter = 0
+    # sends large number of messages if automated_messages is set to True in config
+    try:
+        if conf.getboolean("client", "AutomatedMessages"):
+            _START[1] = False
+            for i in range(conf.getint("client", "PackagesInAutomation")):
+                if _START[0] is False:
+                    break
+                message = '\nmsg-{}=automated message'.format(counter).encode()
+                sock.sendto(message, server_address)
+                print(message.decode())
+                time.sleep(0.1)
+                counter = server_counter + 1
+    except AttributeError:
+        print('connection has been closed')
 
 
 def ddos():
     global counter
+    global server_counter
     counter = 0
-    # sends large number of messages if DDoS is set to True
-    try:
-        if conf.getboolean("client", "DDoS"):
-            _START[1] = False
-            for i in range(conf.getint("client", "packages_in_DDoS")):
-                message = '\nmsg-{}=hejsa'.format(counter).encode()
-                sock.sendto(message, server_address)
-                print(message.decode())
-                data, server = sock.recvfrom(4096)
-                s_counter = int(re.search(r"\d+", data.decode()).group())
-                print(data.decode())
-                counter = s_counter + 1
-            time.sleep(0.1)
-    except AttributeError:
-        print('connection has not been established')
+    if conf.getboolean("client", "DDoS"):
+        for i in range(26):
+            message = '\nmsg-{}=message flooood'.format(counter).encode()
+            sock.sendto(message, server_address)
+            print(message.decode())
+            data, server = sock.recvfrom(4096)
+            server_counter = int(re.search(r"\d+", data.decode()).group())
+            print(data.decode())
+            counter = server_counter + 1
 
 
+bypass_handshake()
 handshake()
 ddos()
-t1 = threading.Thread(target=read)
+t1 = Thread(target=read)
 t1.daemon = True
-t2 = threading.Thread(target=keep_alive)
+t2 = Thread(target=keep_alive)
 t2.daemon = True
 t1.start()
 t2.start()
+automated_message()
 write()

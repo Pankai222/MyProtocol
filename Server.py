@@ -10,11 +10,12 @@ conf.read("opt.conf")
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # bind the socket to the port
 server_address = ('localhost', 43098)
-print('starting up on {} port {}'.format(*server_address))
+print('starting up on {} port {}\n'.format(*server_address))
 sock.bind(server_address)
 
 
 def server():
+    messages_received = 0
     connection = False
     stop = False
     server_counter = 0
@@ -25,7 +26,7 @@ def server():
     try:
         if request.decode().startswith('com-0') and socket.inet_aton(request.decode().split()[1]):
             sock.sendto('com-{} accept '.format(server_counter).encode() + request.split()[1], client_address)
-            handshake1 = '\nconnection request received from ' + request.decode().split()[1]
+            handshake1 = 'connection request received from ' + request.decode().split()[1]
             handshake2 = 'accept sent to ' + request.decode().split()[1]
             print(handshake1 + '\n''' + handshake2)
             accept, client_address = sock.recvfrom(4096)
@@ -44,6 +45,7 @@ def server():
         else:
             log_error(client_address)
 
+        last_message_time = myTime.clock()
         while connection:
             try:
                 if stop:
@@ -52,6 +54,17 @@ def server():
                 sock.settimeout(4.0)
                 data, client_address = sock.recvfrom(4096)
                 client_counter = int(re.search(r"\d+", data.decode()).group())
+                message_time = myTime.clock()
+                if message_time == last_message_time:
+                    messages_received += 1
+                else:
+                    messages_received = 0
+
+                if messages_received > conf.getint('client', 'MaxPackages'):
+                    server_counter = client_counter+1
+                    sock.sendto('res-{}=Package limit reached'.format(server_counter).encode(), client_address)
+                    print('package limit reached, closing connection')
+                    break
 
                 if data.decode().endswith('con-h 0x00'):
                     print('received {} bytes from {}'.format(len(data), client_address))
@@ -66,6 +79,7 @@ def server():
                 if client_counter == 0 or server_counter == client_counter-1 and client_counter != 1:
                     server_counter = client_counter+1
                     sock.sendto(('res-{}='.format(server_counter)+'I am server').encode(), client_address)
+                    last_message_time = message_time
                 else:
                     print('Error in data transfer, closing connection...')
                     sock.sendto(('res-{}='.format(server_counter)+'Package incomplete').encode(), client_address)
