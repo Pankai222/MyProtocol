@@ -61,14 +61,16 @@ def read():
                 break
             elif data.decode() == 'con-res 0xFE':
                 sock.sendto(b'con-res 0xFE', server_address)
-                print('\n' + data.decode() + ' received. Your next input will close the program.')
+                print('\n' + data.decode() + ' received. Your next input will close the program:')
                 break
-            elif data.decode().endswith('END'):
+            elif data.decode().endswith('message does not follow protocol'):
+                print('\n' + data.decode() + ', your next input will close the program')
                 break
             print(data.decode())
             time.sleep(0.1)
     except socket.timeout:
         print('connection closed')
+
     _START[0] = False
 
 
@@ -89,6 +91,7 @@ def write():
 
     except KeyboardInterrupt:
         print('\nclosing connection...')
+        sock.sendto('msg-{}=con-res 0xFE'.format(counter).encode(), server_address)
 
     except NameError:
         print('connection has been closed')
@@ -141,13 +144,18 @@ def ddos():
     counter = 0
     if conf.getboolean("client", "DDoS"):
         for i in range(26):
-            message = '\nmsg-{}=message flooood'.format(counter).encode()
+            message = '\nmsg-{}=messageflooood'.format(counter).encode()
             sock.sendto(message, server_address)
             print(message.decode())
             data, server = sock.recvfrom(4096)
             server_counter = int(re.search(r"\d+", data.decode()).group())
             print(data.decode())
             counter = server_counter + 1
+
+
+def wrong_message():
+    if conf.getboolean("client", "WrongMessage"):
+        sock.sendto(b'Hej', server_address)
 
 
 bypass_handshake()
@@ -160,4 +168,5 @@ t2.daemon = True
 t1.start()
 t2.start()
 automated_message()
+wrong_message()
 write()

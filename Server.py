@@ -53,13 +53,17 @@ def server():
                 # setting available idle-time for recvfrom()-function
                 sock.settimeout(4.0)
                 data, client_address = sock.recvfrom(4096)
+                # sets client_counter via regex by searching string for one or more digits: (\d+), after a hyphen: (r"")
+                # and returning it with group()
                 client_counter = int(re.search(r"\d+", data.decode()).group())
                 message_time = myTime.clock()
+                # increments messages_received if current message has same timestamp as last message, thereby
+                # counting messages per second
                 if message_time == last_message_time:
                     messages_received += 1
                 else:
                     messages_received = 0
-
+                # if messages_received exceed predefined max, sends error-message to client
                 if messages_received > conf.getint('client', 'MaxPackages'):
                     server_counter = client_counter+1
                     sock.sendto('res-{}=Package limit reached'.format(server_counter).encode(), client_address)
@@ -72,10 +76,13 @@ def server():
                     sock.sendto('con-h 0x00'.encode(), client_address)
                     continue
                 if data.decode().endswith('con-res 0xFE'):
+                    print('shutting down server...')
                     break
+
                 print('received {} bytes from {}'.format(len(data), client_address))
                 print('message from {}: '.format(client_address) + data.decode() + '\n')
 
+                # checks if client-message follows protocol by comparing it to the counter for server-message
                 if client_counter == 0 or server_counter == client_counter-1 and client_counter != 1:
                     server_counter = client_counter+1
                     sock.sendto(('res-{}='.format(server_counter)+'I am server').encode(), client_address)
@@ -99,6 +106,10 @@ def server():
 
     except IndexError:
         log_error(client_address)
+
+    except AttributeError:
+        sock.sendto('res-{}=message does not follow protocol'.format(server_counter).encode(), client_address)
+        print('message does not follow protocol, closing connection...')
 
     finally:
         sock.close()
