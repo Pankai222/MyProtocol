@@ -41,9 +41,11 @@ def handshake():
                 break
         except socket.timeout:
             print('No connection found')
+            _START[0] = False
+            break
 
 
-# background-thread that listens for datagram-messages and error-codes from server and prints to client
+# background-thread that listens for datagram-messages and error-codes from server and prints to console
 def read():
     global server_counter
     server_counter = 0
@@ -56,7 +58,7 @@ def read():
             elif data.decode().endswith('Package incomplete'):
                 print('Error in data transfer, closing connection....')
                 break
-            elif data.decode().endswith('Package limit reached'):
+            elif data.decode().startswith('Package limit reached'):
                 print(data.decode() + ', closing connection...')
                 break
             elif data.decode() == 'con-res 0xFE':
@@ -70,7 +72,6 @@ def read():
             time.sleep(0.1)
     except socket.timeout:
         print('connection closed')
-
     _START[0] = False
 
 
@@ -138,19 +139,23 @@ def automated_message():
         print('connection has been closed')
 
 
+# for testing package limit
 def ddos():
     global counter
     global server_counter
     counter = 0
-    if conf.getboolean("client", "DDoS"):
-        for i in range(26):
-            message = '\nmsg-{}=messageflooood'.format(counter).encode()
-            sock.sendto(message, server_address)
-            print(message.decode())
-            data, server = sock.recvfrom(4096)
-            server_counter = int(re.search(r"\d+", data.decode()).group())
-            print(data.decode())
-            counter = server_counter + 1
+    try:
+        if conf.getboolean("client", "DDoS"):
+            for i in range(conf.getint("client", "PackagesInAutomation")):
+                message = '\nmsg-{}=messageflooood'.format(counter).encode()
+                sock.sendto(message, server_address)
+                print(message.decode())
+                data, server = sock.recvfrom(4096)
+                server_counter = int(re.search(r"\d+", data.decode()).group())
+                print(data.decode())
+                counter = server_counter + 1
+    except socket.timeout:
+        print('socket reached timeout')
 
 
 def wrong_message():

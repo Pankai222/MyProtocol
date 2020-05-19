@@ -21,8 +21,7 @@ def server():
     server_counter = 0
     # listens for client syn-message and sends back accept-message; disconnects if none is received
     request, client_address = sock.recvfrom(4096)
-    # checks if SYN-message from client contains correct ip-address, then sends SYN-ACK before receiving
-    # final ACK from client
+    # checks if SYN-message from client follows protocol and has valid ip-address, then sends SYN-ACK
     try:
         if request.decode().startswith('com-0') and socket.inet_aton(request.decode().split()[1]):
             sock.sendto('com-{} accept '.format(server_counter).encode() + request.split()[1], client_address)
@@ -30,6 +29,7 @@ def server():
             handshake2 = 'accept sent to ' + request.decode().split()[1]
             print(handshake1 + '\n''' + handshake2)
             accept, client_address = sock.recvfrom(4096)
+            # checks if ACK from client follows protocol then logs the handshake and starts connection
             if accept.decode().startswith('com-0 accept'):
                 handshake3 = accept.decode().split()[1] + ' received from ' + request.decode().split()[1]
                 print(handshake3 + '\n')
@@ -63,18 +63,20 @@ def server():
                     messages_received += 1
                 else:
                     messages_received = 0
-                # if messages_received exceed predefined max, sends error-message to client
+                # if messages_received exceeds predefined max, sends error-message to client
                 if messages_received > conf.getint('client', 'MaxPackages'):
                     server_counter = client_counter+1
-                    sock.sendto('res-{}=Package limit reached'.format(server_counter).encode(), client_address)
+                    sock.sendto('res-{}=Package limit reached, shutting down connection'.format(server_counter).encode()
+                                , client_address)
                     print('package limit reached, closing connection')
                     break
-
+                # receives heartbeat-package and sends it back
                 if data.decode().endswith('con-h 0x00'):
                     print('received {} bytes from {}'.format(len(data), client_address))
                     print('message from {}: '.format(client_address) + data.decode() + '\n')
                     sock.sendto('con-h 0x00'.encode(), client_address)
                     continue
+                # receives timeout-package and shuts down
                 if data.decode().endswith('con-res 0xFE'):
                     print('shutting down server...')
                     break
@@ -82,7 +84,8 @@ def server():
                 print('received {} bytes from {}'.format(len(data), client_address))
                 print('message from {}: '.format(client_address) + data.decode() + '\n')
 
-                # checks if client-message follows protocol by comparing it to the counter for server-message
+                # checks if client-message follows protocol by comparing it to the counter for server-message.
+                # server_counter will "always" be below client_counter before server-reply has been sent
                 if client_counter == 0 or server_counter == client_counter-1 and client_counter != 1:
                     server_counter = client_counter+1
                     sock.sendto(('res-{}='.format(server_counter)+'I am server').encode(), client_address)
