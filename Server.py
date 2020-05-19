@@ -86,7 +86,8 @@ def server():
 
                 # checks if client-message follows protocol by comparing it to the counter for server-message.
                 # server_counter will "always" be below client_counter before server-reply has been sent
-                if client_counter == 0 or server_counter == client_counter-1 and client_counter != 1:
+                if client_counter == 0 and data.decode().startswith('msg-') or server_counter == client_counter-1 \
+                        and client_counter != 1 and data.decode().startswith('msg-'):
                     server_counter = client_counter+1
                     sock.sendto(('res-{}='.format(server_counter)+'I am server').encode(), client_address)
                     last_message_time = message_time
