@@ -130,7 +130,7 @@ def automated_message():
             for i in range(conf.getint("client", "PackagesInAutomation")):
                 if _START[0] is False:
                     break
-                message = '\nmsg-{}=automated message'.format(counter).encode()
+                message = 'msg-{}=automated message'.format(counter).encode()
                 sock.sendto(message, server_address)
                 print(message.decode())
                 time.sleep(0.1)
@@ -147,7 +147,7 @@ def ddos():
     try:
         if conf.getboolean("client", "DDoS"):
             for i in range(conf.getint("client", "PackagesInAutomation")):
-                message = '\nmsg-{}=messageflooood'.format(counter).encode()
+                message = 'msg-{}=messageflooood'.format(counter).encode()
                 sock.sendto(message, server_address)
                 print(message.decode())
                 data, server = sock.recvfrom(4096)
