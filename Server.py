@@ -12,8 +12,9 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = ('localhost', 43098)
 print('starting up on {} port {}\n'.format(*server_address))
 sock.bind(server_address)
+server_ip = socket.gethostbyname(socket.gethostname())
 
-
+# TODO: split server-function into smaller functions
 def server():
     messages_received = 0
     connection = False
